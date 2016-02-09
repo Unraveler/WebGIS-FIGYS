@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+    <head>
+		<!--Title and metadata-->
+        <title>FIG Test Map</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+		
+		<!--CSS-->
+		<link rel="stylesheet" href="css/leaflet.css" />
+        <link rel="stylesheet" href="css/MarkerCluster.css" />
+        <link rel="stylesheet" href="css/MarkerCluster.Default.css" />
+        <link rel="stylesheet" type="text/css" href="css/qgis2web.css">
+        <link rel="stylesheet" href="css/label.css" />
+        
+		<!--API-->
+		<script src="js/leaflet.js"></script>
+        <script src="js/leaflet-hash.js"></script>
+        <script src="js/label.js"></script>
+        <script src="js/Autolinker.min.js"></script>
+        <script src="js/leaflet.markercluster.js"></script>
+        
+    </head>
+    <body>
+        <div id="map"></div>
+        <script src="data/json_FIGCountries.js"></script>
+        <script src="data/json_FIGEvents.js"></script>
+        <script>
+			var highlightLayer;
+			function highlightFeature(e) {
+				highlightLayer = e.target;
+				highlightLayer.setStyle({
+					fillColor: '#ffff00',
+					fillOpacity: 0.5
+				});
+
+				if (!L.Browser.ie && !L.Browser.opera) {
+					highlightLayer.bringToFront();
+				}
+			}
+			var map = L.map('map', {
+				zoomControl:true, maxZoom:9, minZoom:2
+			})
+			var hash = new L.Hash(map);
+			var feature_group = new L.featureGroup([]);
+			var bounds_group = new L.featureGroup([]);
+			var raster_group = new L.LayerGroup([]);
+			var basemap = L.tileLayer('http://a.tile.stamen.com/watercolor/{z}/{x}/{y}.png', {
+				attribution:' World coverage basemap by <a href="http://stamen.com"> Stamen Design </a> using OSM data | Layer data provided by <a href="http://www.fig.net/organisation/networks/ys/"> FIG Young Surveyors Network </a> | Webmap application developed by Rui Jorge Abrunhosa Nunes using Leaflet JavaScript library',
+				maxZoom: 15
+			});
+			basemap.addTo(map);
+			var layerOrder = new Array();
+			function restackLayers() {
+				for (index = 0; index < layerOrder.length; index++) {
+					layerOrder[index].bringToFront();
+				}
+			}
+			map.on('overlayadd', restackLayers);
+			layerControl = L.control.layers({},{},{collapsed:false});
+			function pop_FIGCountries(feature, layer) {
+				layer.on({
+					mouseout: function(e) {
+						layer.setStyle(doStyleFIGCountries(feature));
+					},
+					mouseover: highlightFeature,
+				});
+				var popupContent = '<table><tr><th scope="row">Country</th><td>' + Autolinker.link(String(feature.properties['Country'])) + '</td></tr><tr><th scope="row">People</th><td>' + Autolinker.link(String(feature.properties['People'])) + '</td></tr></table>';
+				layer.bindPopup(popupContent);
+			}
+
+			function doStyleFIGCountries(feature) {
+				return {
+					weight: 1.0,
+					color: '#000000',
+					fillColor: '#e31a1c',
+					dashArray: '',
+					opacity: 0.5,
+					fillOpacity: 0.5
+				};
+			}
+            var json_FIGCountriesJSON = new L.geoJson(json_FIGCountries, {
+                onEachFeature: pop_FIGCountries,
+                style: doStyleFIGCountries
+            });
+            layerOrder[layerOrder.length] = json_FIGCountriesJSON;
+			layerOrder[layerOrder.length] = json_FIGCountriesJSON;
+			for (index = 0; index < layerOrder.length; index++) {
+				feature_group.removeLayer(layerOrder[index]); feature_group.addLayer(layerOrder[index]);
+			}
+			bounds_group.addLayer(json_FIGCountriesJSON);
+			feature_group.addLayer(json_FIGCountriesJSON);
+			function pop_FIGEvents(feature, layer) {
+				layer.on({
+					mouseout: function(e) {
+						layer.setStyle(doStyleFIGEvents(feature));
+					},
+					mouseover: highlightFeature,
+				});
+				var popupContent = '<table><tr><th scope="row">Name</th><td>' + Autolinker.link(String(feature.properties['Name'])) + '</td></tr><tr><th scope="row">Date</th><td>' + Autolinker.link(String(feature.properties['Date'])) + '</td></tr><tr><th scope="row">People</th><td>' + Autolinker.link(String(feature.properties['People'])) + '</td></tr><tr><th scope="row">Countries</th><td>' + Autolinker.link(String(feature.properties['Countries'])) + '</td></tr><tr><th scope="row">Event</th><td>' + Autolinker.link(String(feature.properties['Event'])) + '</td></tr></table>';
+				layer.bindPopup(popupContent);
+			}
+
+			function doStyleFIGEvents() {
+				return {
+					radius: 5.0,
+					fillColor: '#b80000',
+					color: '#000000',
+					weight: 0.0,
+					opacity: 1.0,
+					dashArray: '',
+					fillOpacity: 1.0
+				}
+			}
+			function doPointToLayerFIGEvents(feature, latlng) {
+				return L.circleMarker(latlng, doStyleFIGEvents())
+			}
+			var json_FIGEventsJSON = new L.geoJson(json_FIGEvents, {
+				onEachFeature: pop_FIGEvents, 
+				pointToLayer: doPointToLayerFIGEvents
+				});
+			layerOrder[layerOrder.length] = json_FIGEventsJSON;
+			bounds_group.addLayer(json_FIGEventsJSON);
+			feature_group.addLayer(json_FIGEventsJSON);
+			raster_group.addTo(map);
+			feature_group.addTo(map);
+			var baseMaps = {
+				'Stamen World coverage': basemap
+			};
+            L.control.layers(baseMaps,{'<img src="legend/FIGEvents.png" /> FIG Events': json_FIGEventsJSON,'<img src="legend/FIGCountries.png" /> FIG Countries': json_FIGCountriesJSON},{collapsed:false}).addTo(map);
+			map.fitBounds(bounds_group.getBounds());
+			L.control.scale({options: {position: 'bottomleft',maxWidth: 100,metric: true,imperial: false,updateWhenIdle: false}}).addTo(map);
+    </script>
+</body>
+</html>
